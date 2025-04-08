@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>スクリーンタイム監視アプリ</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            max-width: 500px;
+            margin: 0 auto;
+            padding: 20px;
+            text-align: center;
+        }
+        .container {
+            background-color: #f5f5f5;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #333;
+        }
+        .timer {
+            font-size: 2.5em;
+            margin: 20px 0;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        .controls {
+            margin: 20px 0;
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 0 5px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1em;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        button:disabled {
+            background-color: #95a5a6;
+            cursor: not-allowed;
+        }
+        .settings {
+            margin-top: 30px;
+            text-align: left;
+            padding: 15px;
+            background-color: #ecf0f1;
+            border-radius: 8px;
+        }
+        input[type="number"] {
+            width: 60px;
+            padding: 5px;
+            margin-right: 5px;
+        }
+        .stats {
+            margin-top: 20px;
+            text-align: left;
+        }
+        .notification-test {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>スクリーンタイム監視</h1>
+        
+        <div class="timer" id="timer">00:00:00</div>
+        
+        <div class="controls">
+            <button id="resetBtn">リセット</button>
+            <button id="pauseBtn">一時停止</button>
+        </div>
+        
+        <div class="settings">
+            <h3>設定</h3>
+            <div>
+                <label for="timeLimit">目標時間制限: </label>
+                <input type="number" id="timeLimit" min="1" max="1440" value="60"> 分
+                <button id="saveLimitBtn">保存</button>
+            </div>
+            <div style="margin-top: 10px;">
+                <input type="checkbox" id="notifyEnabled" checked>
+                <label for="notifyEnabled">制限時間を超えたら通知する</label>
+            </div>
+        </div>
+        
+        <div class="stats">
+            <h3>統計</h3>
+            <p>今日の利用時間: <span id="todayUsage">0分</span></p>
+            <p>今週の利用時間: <span id="weekUsage">0分</span></p>
+        </div>
+        
+        <div class="notification-test">
+            <button id="testNotificationBtn">通知テスト</button>
+        </div>
+    </div>
+
+    <script>
+        // 変数初期化
+        let startTime = null;
+        let elapsedTime = 0;
+        let timerInterval = null;
+        let timeLimit = 60; // デフォルト60分
+        let isPaused = false;
+        let lastActiveTime = Date.now();
+        let notificationShown = false;
+        let dailyStats = {};
+        
+        // DOM要素
+        const timerElement = document.getElementById('timer');
+        const resetBtn = document.getElementById('resetBtn');
+        const pauseBtn = document.getElementById('pauseBtn');
+        const timeLimitInput = document.getElementById('timeLimit');
+        const saveLimitBtn = document.getElementById('saveLimitBtn');
+        const notifyEnabledCheckbox = document.getElementById('notifyEnabled');
+        const todayUsageElement = document.getElementById('todayUsage');
+        const weekUsageElement = document.getElementById('weekUsage');
+        const testNotificationBtn = document.getElementById('testNotificationBtn');
+        
+        // 通知権限を確認・リクエスト
+        function checkNotificationPermission() {
+            if (Notification.permission !== 'granted') {
+                Notification.requestPermission();
+            }
+        }
+        
+        // 通知を表示
+        function showNotification() {
+            if (Notification.permission === 'granted' && notifyEnabledCheckbox.checked && !notificationShown) {
+                const notification = new Notification('スクリーンタイム警告', {
+                    body: `設定した目標時間(${timeLimit}分)を超えました！`,
+                    icon: 'https://cdn-icons-png.flaticon.com/512/1827/1827504.png'
+                });
+                notificationShown = true;
+            }
+        }
+        
+        // テスト通知
+        testNotificationBtn.addEventListener('click', () => {
+            const notification = new Notification('テスト通知', {
+                body: 'これはテスト通知です。実際の警告はこのように表示されます。',
+                icon: 'https://cdn-icons-png.flaticon.com/512/1827/1827504.png'
+            });
+        });
+        
+        // タイマー表示更新
+        function updateTimer() {
+            const hours = Math.floor(elapsedTime / 3600);
+            const minutes = Math.floor((elapsedTime % 3600) / 60);
+            const seconds = Math.floor(elapsedTime % 60);
+            
+            timerElement.textContent = 
+                `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            
+            // 分単位での経過時間
+            const elapsedMinutes = Math.floor(elapsedTime / 60);
+            
+            // 制限時間チェック
+            if (elapsedMinutes >= timeLimit && !notificationShown) {
+                showNotification();
+            }
+        }
+        
+        // タイマー開始
+        function startTimer() {
+            if (!startTime) {
+                startTime = Date.now() - (elapsedTime * 1000);
+            }
+            
+            timerInterval = setInterval(() => {
+                // 現在のタブがアクティブな場合のみ時間をカウント
+                if (document.visibilityState === 'visible') {
+                    const now = Date.now();
+                    
+                    // 非アクティブから戻った場合はstartTimeを調整
+                    if (now - lastActiveTime > 2000) {
+                        startTime += (now - lastActiveTime);
+                    }
+                    
+                    lastActiveTime = now;
+                    elapsedTime = (now - startTime) / 1000;
+                    updateTimer();
+                    saveCurrentSession();
+                }
+            }, 1000);
+        }
+        
+        // 一時停止
+        function pauseTimer() {
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+                isPaused = true;
+                pauseBtn.textContent = '再開';
+            } else {
+                startTime = Date.now() - (elapsedTime * 1000);
+                startTimer();
+                isPaused = false;
+                pauseBtn.textContent = '一時停止';
+            }
+        }
+        
+        // リセット
+        function resetTimer() {
+            clearInterval(timerInterval);
+            timerInterval = null;
+            startTime = null;
+            elapsedTime = 0;
+            notificationShown = false;
+            updateTimer();
+            saveCurrentSession();
+            startTimer();
+        }
+        
+        // 目標時間保存
+        function saveTimeLimit() {
+            const limit = parseInt(timeLimitInput.value);
+            if (!isNaN(limit) && limit > 0) {
+                timeLimit = limit;
+                localStorage.setItem('timeLimit', timeLimit);
+                alert(`目標時間を${timeLimit}分に設定しました`);
+            }
+        }
+        
+        // 現在のセッションを保存
+        function saveCurrentSession() {
+            // 日付キーを生成 (YYYY-MM-DD)
+            const today = new Date();
+            const dateKey = today.toISOString().split('T')[0];
+            
+            // 本日の統計データを更新
+            if (!dailyStats[dateKey]) {
+                dailyStats[dateKey] = 0;
+            }
+            
+            // 経過時間を分単位で保存
+            dailyStats[dateKey] = Math.floor(elapsedTime / 60);
+            
+            // LocalStorageに保存
+            localStorage.setItem('dailyStats', JSON.stringify(dailyStats));
+            
+            // 統計表示を更新
+            updateStats();
+        }
+        
+        // 統計表示更新
+        function updateStats() {
+            const today = new Date();
+            const dateKey = today.toISOString().split('T')[0];
+            
+            // 今日の利用時間
+            const todayMinutes = dailyStats[dateKey] || 0;
+            todayUsageElement.textContent = `${todayMinutes}分`;
+            
+            // 過去7日間の利用時間を計算
+            let weekMinutes = 0;
+            for (let i = 0; i < 7; i++) {
+                const date = new Date(today);
+                date.setDate(today.getDate() - i);
+                const key = date.toISOString().split('T')[0];
+                weekMinutes += dailyStats[key] || 0;
+            }
+            weekUsageElement.textContent = `${weekMinutes}分`;
+        }
+        
+        // イベントリスナー
+        resetBtn.addEventListener('click', resetTimer);
+        pauseBtn.addEventListener('click', pauseTimer);
+        saveLimitBtn.addEventListener('click', saveTimeLimit);
+        
+        // ページの可視性変更検知
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                // ページがアクティブになった場合
+                if (!isPaused && !timerInterval) {
+                    startTime = Date.now() - (elapsedTime * 1000);
+                    startTimer();
+                }
+            } else {
+                // ページが非アクティブになった場合
+                clearInterval(timerInterval);
+                timerInterval = null;
+                // elapsedTimeは現在の値を保持
+            }
+        });
+        
+        // 初期化関数
+        function initialize() {
+            // 通知の許可を確認
+            checkNotificationPermission();
+            
+            // 保存された設定を読み込み
+            const savedTimeLimit = localStorage.getItem('timeLimit');
+            if (savedTimeLimit) {
+                timeLimit = parseInt(savedTimeLimit);
+                timeLimitInput.value = timeLimit;
+            }
+            
+            // 統計データを読み込み
+            const savedStats = localStorage.getItem('dailyStats');
+            if (savedStats) {
+                dailyStats = JSON.parse(savedStats);
+            }
+            
+            // 統計を更新
+            updateStats();
+            
+            // タイマーを開始
+            startTimer();
+        }
+        
+        // アプリ初期化
+        initialize();
+    </script>
+</body>
+</html>
