@@ -136,7 +136,7 @@
         function showNotification() {
             if (Notification.permission === 'granted' && notifyEnabledCheckbox.checked && !notificationShown) {
                 const notification = new Notification('スクリーンタイム警告', {
-                    body: `設定した目標時間(${timeLimit}分)を超えました！`,
+                    body: `設定した目標時間(${timeLimit}分)を超えてるって。厳しいって`,
                     icon: 'https://cdn-icons-png.flaticon.com/512/1827/1827504.png'
                 });
                 notificationShown = true;
