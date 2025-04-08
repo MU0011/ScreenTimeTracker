@@ -192,22 +192,26 @@
                 }
             }, 1000);
         }
-        
+
         // 一時停止
         function pauseTimer() {
             if (timerInterval) {
+                // タイマーを停止
                 clearInterval(timerInterval);
                 timerInterval = null;
                 isPaused = true;
                 pauseBtn.textContent = '再開';
+                // 一時停止した時点の時間を記録
+                pauseTime = Date.now();
             } else {
-                startTime = Date.now() - (elapsedTime * 1000);
+                // 再開する場合、一時停止していた時間を考慮してstartTimeを調整
+                const pauseDuration = Date.now() - pauseTime;
+                startTime += pauseDuration;
                 startTimer();
                 isPaused = false;
                 pauseBtn.textContent = '一時停止';
             }
         }
-        
         // リセット
         function resetTimer() {
             clearInterval(timerInterval);
