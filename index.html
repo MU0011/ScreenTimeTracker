@@ -104,92 +104,39 @@
     </div>
 
     <script>
-        // 変数初期化
-        let startTime = null;
-        let elapsedTime = 0;
-        let timerInterval = null;
-        let timeLimit = 60; // デフォルト60分
-        let isPaused = false;
-        let lastActiveTime = Date.now();
-        let notificationShown = false;
-        let dailyStats = {};
-        
-        // DOM要素
-        const timerElement = document.getElementById('timer');
-        const resetBtn = document.getElementById('resetBtn');
-        const pauseBtn = document.getElementById('pauseBtn');
-        const timeLimitInput = document.getElementById('timeLimit');
-        const saveLimitBtn = document.getElementById('saveLimitBtn');
-        const notifyEnabledCheckbox = document.getElementById('notifyEnabled');
-        const todayUsageElement = document.getElementById('todayUsage');
-        const weekUsageElement = document.getElementById('weekUsage');
-        const testNotificationBtn = document.getElementById('testNotificationBtn');
-        
-        // 通知権限を確認・リクエスト
-        function checkNotificationPermission() {
-            if (Notification.permission !== 'granted') {
-                Notification.requestPermission();
-            }
-        }
-        
-        // 通知を表示
-        function showNotification() {
-            if (Notification.permission === 'granted' && notifyEnabledCheckbox.checked && !notificationShown) {
-                const notification = new Notification('スクリーンタイム警告', {
-                    body: `設定した目標時間(${timeLimit}分)を超えてるって。厳しいって`,
-                    icon: 'https://cdn-icons-png.flaticon.com/512/1827/1827504.png'
-                });
-                notificationShown = true;
-            }
-        }
-        
-        // テスト通知
-        testNotificationBtn.addEventListener('click', () => {
-            const notification = new Notification('テスト通知', {
-                body: 'これはテスト通知です。実際の警告はこのように表示されます。',
-                icon: 'https://cdn-icons-png.flaticon.com/512/1827/1827504.png'
-            });
-        });
-        
-        // タイマー表示更新
-        function updateTimer() {
-            const hours = Math.floor(elapsedTime / 3600);
-            const minutes = Math.floor((elapsedTime % 3600) / 60);
-            const seconds = Math.floor(elapsedTime % 60);
-            
-            timerElement.textContent = 
-                `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-            
-            // 分単位での経過時間
-            const elapsedMinutes = Math.floor(elapsedTime / 60);
-            
-            // 制限時間チェック
-            if (elapsedMinutes >= timeLimit && !notificationShown) {
-                showNotification();
-            }
-        }
-        
-        // タイマー開始
-        function startTimer() {
-            if (!startTime) {
-                startTime = Date.now() - (elapsedTime * 1000);
+        // Timer クラス：タイマーの状態と動作を管理
+        class Timer {
+            constructor(onUpdate, onSave) {
+                this.startTime = null;
+                this.elapsedTime = 0;
+                this.timerInterval = null;
+                this.isPaused = false;
+                this.pauseTime = null;
+                this.visibilityPauseTime = null;
+                this.onUpdate = onUpdate;   // タイマー更新時のコールバック
+                this.onSave = onSave;       // 保存時のコールバック
+                
+                // ページの可視性変更イベントリスナー
+                document.addEventListener('visibilitychange', this.handleVisibilityChange.bind(this));
             }
             
-            timerInterval = setInterval(() => {
-                // 現在のタブがアクティブな場合のみ時間をカウント
-                if (document.visibilityState === 'visible') {
+            // 時間の更新処理
+            update() {
+                if (document.visibilityState === 'visible' && !this.isPaused) {
                     const now = Date.now();
                     
-                    // 非アクティブから戻った場合はstartTimeを調整
-                    if (now - lastActiveTime > 2000) {
-                        startTime += (now - lastActiveTime);
+                    // 非表示状態から復帰した場合の調整
+                    if (this.visibilityPauseTime !== null) {
+                        const hiddenDuration = now - this.visibilityPauseTime;
+                        this.startTime += hiddenDuration;
+                        this.visibilityPauseTime = null;
                     }
                     
-                    lastActiveTime = now;
-                    elapsedTime = (now - startTime) / 1000;
-                    updateTimer();
-                    saveCurrentSession();
+                    this.elapsedTime = (now - this.startTime) / 1000;
+                    this.onUpdate(this.elapsedTime);
+                    this.onSave();
                 }
+<<<<<<< HEAD
             }, 1000);
         }
         
@@ -239,86 +186,321 @@
             // 本日の統計データを更新
             if (!dailyStats[dateKey]) {
                 dailyStats[dateKey] = 0;
+=======
+>>>>>>> 765f718 (index.html)
             }
             
-            // 経過時間を分単位で保存
-            dailyStats[dateKey] = Math.floor(elapsedTime / 60);
-            
-            // LocalStorageに保存
-            localStorage.setItem('dailyStats', JSON.stringify(dailyStats));
-            
-            // 統計表示を更新
-            updateStats();
-        }
-        
-        // 統計表示更新
-        function updateStats() {
-            const today = new Date();
-            const dateKey = today.toISOString().split('T')[0];
-            
-            // 今日の利用時間
-            const todayMinutes = dailyStats[dateKey] || 0;
-            todayUsageElement.textContent = `${todayMinutes}分`;
-            
-            // 過去7日間の利用時間を計算
-            let weekMinutes = 0;
-            for (let i = 0; i < 7; i++) {
-                const date = new Date(today);
-                date.setDate(today.getDate() - i);
-                const key = date.toISOString().split('T')[0];
-                weekMinutes += dailyStats[key] || 0;
-            }
-            weekUsageElement.textContent = `${weekMinutes}分`;
-        }
-        
-        // イベントリスナー
-        resetBtn.addEventListener('click', resetTimer);
-        pauseBtn.addEventListener('click', pauseTimer);
-        saveLimitBtn.addEventListener('click', saveTimeLimit);
-        
-        // ページの可視性変更検知
-        document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'visible') {
-                // ページがアクティブになった場合
-                if (!isPaused && !timerInterval) {
-                    startTime = Date.now() - (elapsedTime * 1000);
-                    startTimer();
+            // タイマーの開始
+            start() {
+                if (!this.startTime) {
+                    this.startTime = Date.now() - (this.elapsedTime * 1000);
                 }
-            } else {
-                // ページが非アクティブになった場合
-                clearInterval(timerInterval);
-                timerInterval = null;
-                // elapsedTimeは現在の値を保持
-            }
-        });
-        
-        // 初期化関数
-        function initialize() {
-            // 通知の許可を確認
-            checkNotificationPermission();
-            
-            // 保存された設定を読み込み
-            const savedTimeLimit = localStorage.getItem('timeLimit');
-            if (savedTimeLimit) {
-                timeLimit = parseInt(savedTimeLimit);
-                timeLimitInput.value = timeLimit;
+                
+                if (!this.timerInterval) {
+                    this.timerInterval = setInterval(() => this.update(), 1000);
+                }
+                
+                this.isPaused = false;
             }
             
-            // 統計データを読み込み
-            const savedStats = localStorage.getItem('dailyStats');
-            if (savedStats) {
-                dailyStats = JSON.parse(savedStats);
+            // 一時停止/再開の切り替え
+            togglePause() {
+                if (!this.isPaused) {
+                    // 一時停止
+                    this.pause();
+                    return true; // 一時停止状態になった
+                } else {
+                    // 再開
+                    this.resume();
+                    return false; // 実行中状態になった
+                }
             }
             
-            // 統計を更新
-            updateStats();
+            // 一時停止
+            pause() {
+                if (this.timerInterval) {
+                    clearInterval(this.timerInterval);
+                    this.timerInterval = null;
+                }
+                this.isPaused = true;
+                this.pauseTime = Date.now();
+            }
             
-            // タイマーを開始
-            startTimer();
+            // 再開
+            resume() {
+                if (this.isPaused && this.pauseTime) {
+                    // 一時停止していた時間を考慮して調整
+                    const pauseDuration = Date.now() - this.pauseTime;
+                    this.startTime += pauseDuration;
+                    this.pauseTime = null;
+                }
+                this.start();
+            }
+            
+            // リセット
+            reset() {
+                if (this.timerInterval) {
+                    clearInterval(this.timerInterval);
+                    this.timerInterval = null;
+                }
+                this.startTime = null;
+                this.elapsedTime = 0;
+                this.isPaused = false;
+                this.pauseTime = null;
+                this.visibilityPauseTime = null;
+                this.onUpdate(0);
+                this.start();
+            }
+            
+            // 可視性変更のハンドラー
+            handleVisibilityChange() {
+                if (document.visibilityState === 'hidden') {
+                    // 非表示になった時間を記録
+                    this.visibilityPauseTime = Date.now();
+                    
+                    // インターバルを停止（バックグラウンドでの不要な処理を防止）
+                    if (this.timerInterval) {
+                        clearInterval(this.timerInterval);
+                        this.timerInterval = null;
+                    }
+                } else if (document.visibilityState === 'visible') {
+                    // 表示状態に戻った場合は、一時停止中でなければタイマー再開
+                    if (!this.isPaused) {
+                        this.start();
+                    }
+                }
+            }
+            
+            // 経過時間の取得
+            getElapsedTime() {
+                return this.elapsedTime;
+            }
+            
+            // 一時停止状態の取得
+            getIsPaused() {
+                return this.isPaused;
+            }
         }
         
-        // アプリ初期化
-        initialize();
+        // 通知管理クラス
+        class NotificationManager {
+            constructor() {
+                this.notificationShown = false;
+            }
+            
+            // 通知権限を確認・リクエスト
+            checkPermission() {
+                if (Notification.permission !== 'granted') {
+                    Notification.requestPermission();
+                }
+            }
+            
+            // 通知を表示
+            showNotification(enabled, timeLimit) {
+                if (Notification.permission === 'granted' && enabled && !this.notificationShown) {
+                    const notification = new Notification('スクリーンタイム警告', {
+                        body: `設定した目標時間(${timeLimit}分)を超えてるって。厳しいって`,
+                        icon: 'https://cdn-icons-png.flaticon.com/512/1827/1827504.png'
+                    });
+                    this.notificationShown = true;
+                }
+            }
+            
+            // テスト通知を表示
+            showTestNotification() {
+                const notification = new Notification('テスト通知', {
+                    body: 'これはテスト通知です。実際の警告はこのように表示されます。',
+                    icon: 'https://cdn-icons-png.flaticon.com/512/1827/1827504.png'
+                });
+            }
+            
+            // 通知状態のリセット
+            reset() {
+                this.notificationShown = false;
+            }
+        }
+        
+        // 統計管理クラス
+        class StatsManager {
+            constructor(todayElement, weekElement) {
+                this.dailyStats = {};
+                this.todayElement = todayElement;
+                this.weekElement = weekElement;
+                this.loadStats();
+            }
+            
+            // 統計データの読み込み
+            loadStats() {
+                const savedStats = localStorage.getItem('dailyStats');
+                if (savedStats) {
+                    this.dailyStats = JSON.parse(savedStats);
+                }
+                this.updateDisplay();
+            }
+            
+            // 本日の統計を更新
+            updateTodayStats(elapsedMinutes) {
+                const dateKey = this.getTodayKey();
+                this.dailyStats[dateKey] = elapsedMinutes;
+                this.saveStats();
+                this.updateDisplay();
+            }
+            
+            // 統計データを保存
+            saveStats() {
+                localStorage.setItem('dailyStats', JSON.stringify(this.dailyStats));
+            }
+            
+            // 表示の更新
+            updateDisplay() {
+                const dateKey = this.getTodayKey();
+                
+                // 今日の利用時間
+                const todayMinutes = this.dailyStats[dateKey] || 0;
+                this.todayElement.textContent = `${todayMinutes}分`;
+                
+                // 今週の利用時間
+                const weekMinutes = this.calculateWeekUsage();
+                this.weekElement.textContent = `${weekMinutes}分`;
+            }
+            
+            // 今週の利用時間を計算
+            calculateWeekUsage() {
+                const today = new Date();
+                let weekMinutes = 0;
+                
+                for (let i = 0; i < 7; i++) {
+                    const date = new Date(today);
+                    date.setDate(today.getDate() - i);
+                    const key = date.toISOString().split('T')[0];
+                    weekMinutes += this.dailyStats[key] || 0;
+                }
+                
+                return weekMinutes;
+            }
+            
+            // 今日の日付キーを取得
+            getTodayKey() {
+                return new Date().toISOString().split('T')[0];
+            }
+        }
+        
+        // アプリケーションクラス
+        class ScreenTimeApp {
+            constructor() {
+                // DOM要素
+                this.timerElement = document.getElementById('timer');
+                this.resetBtn = document.getElementById('resetBtn');
+                this.pauseBtn = document.getElementById('pauseBtn');
+                this.timeLimitInput = document.getElementById('timeLimit');
+                this.saveLimitBtn = document.getElementById('saveLimitBtn');
+                this.notifyEnabledCheckbox = document.getElementById('notifyEnabled');
+                this.todayUsageElement = document.getElementById('todayUsage');
+                this.weekUsageElement = document.getElementById('weekUsage');
+                this.testNotificationBtn = document.getElementById('testNotificationBtn');
+                
+                // 設定
+                this.timeLimit = this.loadTimeLimit();
+                
+                // 各マネージャーの初期化
+                this.notificationManager = new NotificationManager();
+                this.statsManager = new StatsManager(this.todayUsageElement, this.weekUsageElement);
+                this.timer = new Timer(
+                    this.updateTimerDisplay.bind(this),
+                    this.saveSession.bind(this)
+                );
+                
+                // イベントリスナーの設定
+                this.setupEventListeners();
+                
+                // 初期化
+                this.initialize();
+            }
+            
+            // 初期化
+            initialize() {
+                this.notificationManager.checkPermission();
+                this.timer.start();
+            }
+            
+            // イベントリスナーの設定
+            setupEventListeners() {
+                this.resetBtn.addEventListener('click', () => this.resetTimer());
+                this.pauseBtn.addEventListener('click', () => this.togglePause());
+                this.saveLimitBtn.addEventListener('click', () => this.saveTimeLimit());
+                this.testNotificationBtn.addEventListener('click', () => {
+                    this.notificationManager.showTestNotification();
+                });
+            }
+            
+            // タイマー表示の更新
+            updateTimerDisplay(elapsedSeconds) {
+                const hours = Math.floor(elapsedSeconds / 3600);
+                const minutes = Math.floor((elapsedSeconds % 3600) / 60);
+                const seconds = Math.floor(elapsedSeconds % 60);
+                
+                this.timerElement.textContent = 
+                    `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                
+                // 分単位での経過時間
+                const elapsedMinutes = Math.floor(elapsedSeconds / 60);
+                
+                // 制限時間チェック
+                if (elapsedMinutes >= this.timeLimit) {
+                    this.notificationManager.showNotification(
+                        this.notifyEnabledCheckbox.checked, 
+                        this.timeLimit
+                    );
+                }
+            }
+            
+            // セッションの保存
+            saveSession() {
+                const elapsedMinutes = Math.floor(this.timer.getElapsedTime() / 60);
+                this.statsManager.updateTodayStats(elapsedMinutes);
+            }
+            
+            // タイマーのリセット
+            resetTimer() {
+                this.timer.reset();
+                this.notificationManager.reset();
+            }
+            
+            // 一時停止/再開の切り替え
+            togglePause() {
+                const isPaused = this.timer.togglePause();
+                this.pauseBtn.textContent = isPaused ? '再開' : '一時停止';
+            }
+            
+            // 目標時間の保存
+            saveTimeLimit() {
+                const limit = parseInt(this.timeLimitInput.value);
+                if (!isNaN(limit) && limit > 0) {
+                    this.timeLimit = limit;
+                    localStorage.setItem('timeLimit', this.timeLimit);
+                    alert(`目標時間を${this.timeLimit}分に設定しました`);
+                }
+            }
+            
+            // 目標時間の読み込み
+            loadTimeLimit() {
+                const savedTimeLimit = localStorage.getItem('timeLimit');
+                const defaultLimit = 60;
+                
+                if (savedTimeLimit) {
+                    const limit = parseInt(savedTimeLimit);
+                    this.timeLimitInput.value = limit;
+                    return limit;
+                }
+                
+                return defaultLimit;
+            }
+        }
+        
+        // アプリケーションの起動
+        document.addEventListener('DOMContentLoaded', () => {
+            const app = new ScreenTimeApp();
+        });
     </script>
 </body>
 </html>
