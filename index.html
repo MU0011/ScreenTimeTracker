@@ -1,11 +1,9 @@
 <!DOCTYPE html>
 <html lang="ja">
-<<<<<<< HEAD
     <head>
         <meta charset="fantasy-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>スマホ見てるやつ厳しいって</title>
-        <!-- Amatic SC フォントを読み込み -->
         <link href="https://fonts.googleapis.com/css?family=Noto+Sans+JP&display=swap" rel="stylesheet">
         <style>
             body {
@@ -170,84 +168,190 @@
             .overlay.active {
                 display: block;
             }
+            .auth-modal {
+                display: none;
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background-color: rgba(0, 0, 0, 0.7);
+                z-index: 1000;
+                justify-content: center;
+                align-items: center;
+            }
+            
+            .auth-container {
+                background-color: white;
+                padding: 30px;
+                border-radius: 10px;
+                width: 90%;
+                max-width: 400px;
+            }
+            
+            .auth-container h2 {
+                margin-top: 0;
+                text-align: center;
+                font-size: 2em;
+            }
+            
+            .auth-form {
+                display: flex;
+                flex-direction: column;
+                gap: 20px;
+            }
+            
+            .form-group {
+                display: flex;
+                flex-direction: column;
+            }
+            
+            .form-group label {
+                font-size: 1.2em;
+                margin-bottom: 5px;
+            }
+            
+            .form-group input {
+                padding: 12px;
+                font-size: 1.2em;
+                border: 1px solid #ddd;
+                border-radius: 5px;
+            }
+            
+            .error-message {
+                color: #e74c3c;
+                font-size: 1em;
+                min-height: 20px;
+            }
+            
+            #registerBtn {
+                padding: 12px;
+                font-size: 1.5em;
+                background-color: #000011;
+                color: white;
+                border: none;
+                border-radius: 5px;
+                cursor: pointer;
+            }
         </style>
     </head>
     <body>
+        <script type="module">
+            //Firebase関連のモジュールをインポート
+            // Import the functions you need from the SDKs you need
+            import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
+            import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-analytics.js";
+            import { getAuth, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js";
+            import { getFirestore, collection, doc, setDoc } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
+            // TODO: Add SDKs for Firebase products that you want to use
+            // https://firebase.google.com/docs/web/setup#available-libraries
+          
+            // Your web app's Firebase configuration
+            // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+            const firebaseConfig = {
+              apiKey: "AIzaSyDmpKza5ixbGHmHdO3TOiiBvoBwV0hciPA",
+              authDomain: "screentimetracker-daf25.firebaseapp.com",
+              projectId: "screentimetracker-daf25",
+              storageBucket: "screentimetracker-daf25.firebasestorage.app",
+              messagingSenderId: "311529209200",
+              appId: "1:311529209200:web:4e29b73c26b9e53a16a3b5",
+              measurementId: "G-48V99P52FB"
+            };
+            //Firebaseの初期化
+            const app = initializeApp(firebaseConfig);
+            const analytics = getAnalytics(app);
+            const auth = getAuth(app);
+            const db = getFirestore(app);
+            
+            //Firebaseの初期化が完了したら、アカウント登録の処理を実行する
+            // DOMが読み込まれたら実行
+            document.addEventListener('DOMContentLoaded', () => {
+                // アプリケーションの起動
+                const app = new ScreenTimeApp();
+                
+                // ユーザー認証状態のチェック(Firebaseの認証状態を監視)
+                authonAuthStateChanged((user) => {
+                    if (user) {
+                        showAuthModal();
+                    }
+                });
+            });
+
+            // 初回訪問チェック
+            function checkFirstVisit() {
+                const isRegistered = localStorage.getItem('userRegistered');
+                if (!isRegistered) showAuthModal();
+            };
+
+            // 認証モーダルの表示
+            function showAuthModal() {
+                const authModal = document.getElementById('authModal');
+                authModal.style.display = 'flex';
+                
+                // 登録ボタンのイベントリスナー
+                document.getElementById('registerBtn').addEventListener('click', registerUser);
+            }
+
+            // ユーザー登録
+            async function registerUser() {
+                const emailInput = document.getElementById('email');
+                const usernameInput = document.getElementById('username');
+                const errorElement = document.getElementById('authError');
+                
+                const email = emailInput.value.trim();
+                const username = usernameInput.value.trim();
+                
+                // 入力検証
+                if (!email || !username) {
+                    errorElement.textContent = 'すべての項目を入力してください。';
+                    return;
+                }
+                
+                if (!email.endsWith('@gmail.com')) {
+                    errorElement.textContent = 'Gmailアドレスを入力してください。';
+                    return;
+                }
+                
+                try {
+                    // Firebaseで認証
+                    const password = generateRandomPassword(); // セキュリティのためランダムパスワード生成
+                    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                    const user = userCredential.user;
+                    
+                    // Firestoreにユーザーデータを保存
+                    await setDoc(doc(db, "users", user.uid), {
+                        email: email,
+                        username: username,
+                        createdAt: new Date().toISOString()
+                    });
+                    
+                    // ローカルストレージに登録状態を保存
+                    localStorage.setItem('userRegistered', 'true');
+                    localStorage.setItem('userId', user.uid);
+                    
+                    // モーダルを閉じる
+                    document.getElementById('authModal').style.display = 'none';
+                    
+                    alert('アカウント登録が完了しました！');
+                } catch (error) {
+                    console.error('登録エラー:', error);
+                    errorElement.textContent = 'アカウント登録に失敗しました: ' + error.message;
+                }
+                //ランダムパスワードをセキュリティのために生成
+            function generateRandomPassword(){
+                const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()';
+                let password = '';
+                for (let i = 0; i < 12; i++){
+                    const randomIndex = Math.floor(Math.random() * chars.length);
+                    password += chars[randomIndex];
+                }
+                return password;
+                }
+            }
+
+
+          </script>
         <h1>スマホ見てるやつ厳しいって</h1>
-=======
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>スマホ見てるやつ厳しいって</title>
-    <link href="https://fonts.googleapis.com/css2?family=Amatic+SC:wght@400;700&display=swap" rel="stylesheet">
-    <style>
-        body {
-            font-family: 'Amatic SC', sans-serif;
-            max-width: 500px;
-            margin: 0 auto;
-            padding: 20px;
-            text-align: center;
-        }
-        .container {
-            background-color: #f5f5f5;
-            border-radius: 10px;
-            padding: 20px;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-        }
-        h1 {
-            color: #333;
-        }
-        .timer {
-            font-size: 2.5em;
-            margin: 20px 0;
-            font-weight: bold;
-            color: #2c3e50;
-        }
-        .controls {
-            margin: 20px 0;
-        }
-        button {
-            background-color: #3498db;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            margin: 0 5px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 1em;
-        }
-        button:hover {
-            background-color: #2980b9;
-        }
-        button:disabled {
-            background-color: #95a5a6;
-            cursor: not-allowed;
-        }
-        .settings {
-            margin-top: 30px;
-            text-align: left;
-            padding: 15px;
-            background-color: #ecf0f1;
-            border-radius: 8px;
-        }
-        input[type="number"] {
-            width: 60px;
-            padding: 5px;
-            margin-right: 5px;
-        }
-        .stats {
-            margin-top: 20px;
-            text-align: left;
-        }
-        .notification-test {
-            margin-top: 20px;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>スクリーンタイム監視</h1>
->>>>>>> 66a2b4560ea9f417f0401b6643d3aa0277a89f4e
         
         <!-- メニューボタン -->
         <button class="menu-button" id="menuBtn">☰</button>
@@ -289,8 +393,25 @@
         
         <!-- オーバーレイ -->
         <div class="overlay" id="overlay"></div>
+        <div class="auth-modal" id="authModal">
+            <div class="auth-container">
+                <h2>アカウント登録</h2>
+                <div class="auth-form">
+                    <div class="form-group">
+                        <label for="email">Gmail:</label>
+                        <input type="email" id="email" placeholder="example@gmail.com" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="username">アカウント名:</label>
+                        <input type="text" id="username" placeholder="ニックネーム" required>
+                    </div>
+                    <div class="error-message" id="authError"></div>
+                    <button id="registerBtn">登録</button>
+                </div>
+            </div>
+        </div>
     
-    <script>
+        <script>
         // Timer クラス：タイマーの状態と動作を管理
         class Timer {
             constructor(onUpdate, onSave) {
