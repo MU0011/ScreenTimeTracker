@@ -233,66 +233,194 @@
                 border-radius: 5px;
                 cursor: pointer;
             }
+
+            /* 友達セクション */
+            .friends-section {
+                margin-top: 20px;
+            }
+            
+            .action-btn {
+                background-color: #000011;
+                color: white;
+                border: none;
+                padding: 10px 15px;
+                border-radius: 5px;
+                font-size: 1.2em;
+                cursor: pointer;
+                margin-bottom: 15px;
+            }
+            
+            .friends-list {
+                max-height: 200px;
+                overflow-y: auto;
+                margin-top: 15px;
+                background-color: #f4f4f4;
+                border-radius: 5px;
+                padding: 10px;
+            }
+            
+            .friend-item {
+                padding: 8px;
+                border-bottom: 1px solid #ddd;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+            
+            .friend-item:last-child {
+                border-bottom: none;
+            }
+            
+            /* 友達検索モーダル */
+            .friend-search-modal {
+                display: none;
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background-color: rgba(0, 0, 0, 0.7);
+                z-index: 1000;
+                justify-content: center;
+                align-items: center;
+            }
+            
+            .friend-search-container {
+                background-color: white;
+                padding: 30px;
+                border-radius: 10px;
+                width: 90%;
+                max-width: 500px;
+            }
+            
+            .search-form {
+                margin: 20px 0;
+            }
+            
+            .search-results {
+                max-height: 300px;
+                overflow-y: auto;
+                margin-top: 20px;
+                background-color: #f4f4f4;
+                border-radius: 5px;
+                padding: 10px;
+            }
+            
+            .search-result-item {
+                padding: 10px;
+                border-bottom: 1px solid #ddd;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+            
+            .search-result-item:last-child {
+                border-bottom: none;
+            }
+            
+            .search-result-item button {
+                background-color: #2ecc71;
+                color: white;
+                border: none;
+                padding: 5px 10px;
+                border-radius: 3px;
+                cursor: pointer;
+            }
+            
+            #searchQuery {
+                padding: 10px;
+                width: 70%;
+                font-size: 1.1em;
+                border: 1px solid #ddd;
+                border-radius: 5px;
+                margin-right: 10px;
+            }
+            
+            #executeSearchBtn {
+                padding: 10px 15px;
+                background-color: #000011;
+                color: white;
+                border: none;
+                border-radius: 5px;
+                cursor: pointer;
+                font-size: 1.1em;
+            }
+            
+            #closeFriendSearchBtn {
+                margin-top: 20px;
+                padding: 10px 15px;
+                background-color: #95a5a6;
+                color: white;
+                border: none;
+                border-radius: 5px;
+                cursor: pointer;
+                font-size: 1.2em;
+                width: 100%;
+            }
         </style>
     </head>
     <body>
         <script type="module">
-            //Firebase関連のモジュールをインポート
             // Import the functions you need from the SDKs you need
-            import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
-            import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-analytics.js";
-            import { getAuth, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js";
-            import { getFirestore, collection, doc, setDoc } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
-            // TODO: Add SDKs for Firebase products that you want to use
-            // https://firebase.google.com/docs/web/setup#available-libraries
-          
+            import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+            import { getAnalytics } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-analytics.js";
+            import { 
+                getAuth, 
+                createUserWithEmailAndPassword, 
+                onAuthStateChanged 
+            } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+            import { 
+                getFirestore, 
+                collection, 
+                doc, 
+                setDoc, 
+                getDoc, 
+                updateDoc, 
+                query, 
+                where, 
+                getDocs, 
+                arrayUnion, 
+                arrayRemove 
+            } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+
             // Your web app's Firebase configuration
-            // For Firebase JS SDK v7.20.0 and later, measurementId is optional
             const firebaseConfig = {
-              apiKey: "AIzaSyDmpKza5ixbGHmHdO3TOiiBvoBwV0hciPA",
-              authDomain: "screentimetracker-daf25.firebaseapp.com",
-              projectId: "screentimetracker-daf25",
-              storageBucket: "screentimetracker-daf25.firebasestorage.app",
-              messagingSenderId: "311529209200",
-              appId: "1:311529209200:web:4e29b73c26b9e53a16a3b5",
-              measurementId: "G-48V99P52FB"
+            apiKey: "AIzaSyDmpKza5ixbGHmHdO3TOiiBvoBwV0hciPA",
+            authDomain: "screentimetracker-daf25.firebaseapp.com",
+            projectId: "screentimetracker-daf25",
+            storageBucket: "screentimetracker-daf25.firebasestorage.app",
+            messagingSenderId: "311529209200",
+            appId: "1:311529209200:web:4e29b73c26b9e53a16a3b5",
+            measurementId: "G-48V99P52FB"
             };
-            //Firebaseの初期化
+
+            // Firebase initialization
             const app = initializeApp(firebaseConfig);
             const analytics = getAnalytics(app);
             const auth = getAuth(app);
             const db = getFirestore(app);
-            
-            //Firebaseの初期化が完了したら、アカウント登録の処理を実行する
-            // DOMが読み込まれたら実行
-            document.addEventListener('DOMContentLoaded', () => {
-                // アプリケーションの起動
-                const app = new ScreenTimeApp();
-                
-                // ユーザー認証状態のチェック(Firebaseの認証状態を監視)
-                authonAuthStateChanged((user) => {
-                    if (user) {
-                        showAuthModal();
-                    }
-                });
-            });
 
-            // 初回訪問チェック
-            function checkFirstVisit() {
-                const isRegistered = localStorage.getItem('userRegistered');
-                if (!isRegistered) showAuthModal();
-            };
+            // Generate random password for security
+            function generateRandomPassword(){
+                const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()';
+                let password = '';
+                for (let i = 0; i < 12; i++){
+                    const randomIndex = Math.floor(Math.random() * chars.length);
+                    password += chars[randomIndex];
+                }
+                return password;
+            }
 
-            // 認証モーダルの表示
+            // Show authentication modal
             function showAuthModal() {
                 const authModal = document.getElementById('authModal');
                 authModal.style.display = 'flex';
                 
-                // 登録ボタンのイベントリスナー
+                // Register button event listener
                 document.getElementById('registerBtn').addEventListener('click', registerUser);
             }
 
-            // ユーザー登録
+            // Register user
             async function registerUser() {
                 const emailInput = document.getElementById('email');
                 const usernameInput = document.getElementById('username');
@@ -301,7 +429,7 @@
                 const email = emailInput.value.trim();
                 const username = usernameInput.value.trim();
                 
-                // 入力検証
+                // Input validation
                 if (!email || !username) {
                     errorElement.textContent = 'すべての項目を入力してください。';
                     return;
@@ -313,23 +441,25 @@
                 }
                 
                 try {
-                    // Firebaseで認証
-                    const password = generateRandomPassword(); // セキュリティのためランダムパスワード生成
+                    // Firebase authentication
+                    const password = generateRandomPassword();
                     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
                     const user = userCredential.user;
                     
-                    // Firestoreにユーザーデータを保存
+                    // Save user data to Firestore
                     await setDoc(doc(db, "users", user.uid), {
                         email: email,
                         username: username,
-                        createdAt: new Date().toISOString()
+                        createdAt: new Date().toISOString(),
+                        friends: [] // Initialize friends list
                     });
                     
-                    // ローカルストレージに登録状態を保存
+                    // Save registration state to local storage
                     localStorage.setItem('userRegistered', 'true');
                     localStorage.setItem('userId', user.uid);
+                    window.currentUserId = user.uid;
                     
-                    // モーダルを閉じる
+                    // Close modal
                     document.getElementById('authModal').style.display = 'none';
                     
                     alert('アカウント登録が完了しました！');
@@ -337,18 +467,337 @@
                     console.error('登録エラー:', error);
                     errorElement.textContent = 'アカウント登録に失敗しました: ' + error.message;
                 }
-                //ランダムパスワードをセキュリティのために生成
-            function generateRandomPassword(){
-                const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()';
-                let password = '';
-                for (let i = 0; i < 12; i++){
-                    const randomIndex = Math.floor(Math.random() * chars.length);
-                    password += chars[randomIndex];
-                }
-                return password;
+            }
+
+            // Friend search modal functions
+            function showFriendSearchModal() {
+                const modal = document.getElementById('friendSearchModal');
+                if (modal) {
+                    modal.style.display = 'flex';
+                    document.getElementById('searchResults').innerHTML = '';
+                    document.getElementById('searchQuery').value = '';
+                } else {
+                    console.error('Modal element not found');
                 }
             }
 
+            function closeFriendSearchModal() {
+                document.getElementById('friendSearchModal').style.display = 'none';
+            }
+
+            // Search users
+            async function searchUsers() {
+                const searchQuery = document.getElementById('searchQuery').value.trim();
+                const searchResults = document.getElementById('searchResults');
+                
+                if (!searchQuery) {
+                    searchResults.innerHTML = '<p>検索キーワードを入力してください</p>';
+                    return;
+                }
+                
+                searchResults.innerHTML = '<p>検索中...</p>';
+                
+                try {
+                    // Get current user ID
+                    const currentUserId = window.currentUserId;
+                    if (!currentUserId) {
+                        searchResults.innerHTML = '<p>認証エラーが発生しました。再ログインしてください。</p>';
+                        return;
+                    }
+                    
+                    // Get user's friend list
+                    const userRef = doc(db, "users", currentUserId);
+                    const userSnap = await getDoc(userRef);
+                    
+                    if (!userSnap.exists()) {
+                        searchResults.innerHTML = '<p>ユーザー情報が見つかりません</p>';
+                        return;
+                    }
+                    
+                    const myFriends = userSnap.data().friends || [];
+                    
+                    // Fix search queries
+                    const usersRef = collection(db, "users");
+                    
+                    // Email exact match
+                    const emailQuery = query(usersRef, where("email", "==", searchQuery));
+                    const emailQuerySnapshot = await getDocs(emailQuery);
+                    
+                    // Username prefix match - fix by handling prefix search differently
+                    // First get all users (careful with this approach - would need pagination for large datasets)
+                    const usersSnapshot = await getDocs(usersRef);
+                    
+                    // Merge results and remove duplicates
+                    const results = new Map();
+                    
+                    // Add email search results
+                    emailQuerySnapshot.forEach(doc => {
+                        if (doc.id !== currentUserId) { // Exclude self
+                            results.set(doc.id, {
+                                id: doc.id,
+                                ...doc.data(),
+                                isFriend: myFriends.includes(doc.id)
+                            });
+                        }
+                    });
+                    
+                    // Add username search results (manual filtering for prefix)
+                    usersSnapshot.forEach(doc => {
+                        if (doc.id !== currentUserId) { // Exclude self
+                            const userData = doc.data();
+                            if (userData.username && userData.username.toLowerCase().startsWith(searchQuery.toLowerCase())) {
+                                results.set(doc.id, {
+                                    id: doc.id,
+                                    ...userData,
+                                    isFriend: myFriends.includes(doc.id)
+                                });
+                            }
+                        }
+                    });
+                    
+                    // Display results
+                    if (results.size === 0) {
+                        searchResults.innerHTML = '<p>検索結果はありません</p>';
+                        return;
+                    }
+                    
+                    let html = '';
+                    results.forEach(user => {
+                        html += `
+                            <div class="search-result-item">
+                                <div>
+                                    <strong>${user.username}</strong><br>
+                                    <small>${user.email}</small>
+                                </div>
+                                <div>
+                                    ${user.isFriend 
+                                        ? `<button class="remove-friend-btn" data-id="${user.id}">友達から削除</button>` 
+                                        : `<button class="add-friend-btn" data-id="${user.id}">友達に追加</button>`
+                                    }
+                                </div>
+                            </div>
+                        `;
+                    });
+                    
+                    searchResults.innerHTML = html;
+                    
+                    // Add event listeners for add friend buttons
+                    document.querySelectorAll('.add-friend-btn').forEach(btn => {
+                        btn.addEventListener('click', (e) => addFriend(e.target.dataset.id));
+                    });
+                    
+                    // Add event listeners for remove friend buttons
+                    document.querySelectorAll('.remove-friend-btn').forEach(btn => {
+                        btn.addEventListener('click', (e) => removeFriend(e.target.dataset.id));
+                    });
+                    
+                } catch (error) {
+                    console.error('検索エラー:', error);
+                    searchResults.innerHTML = '<p>検索中にエラーが発生しました: ' + error.message + '</p>';
+                }
+                
+            }
+
+            // Add friend
+            async function addFriend(friendId) {
+                try {
+                    const currentUserId = window.currentUserId;
+                    
+                    // Add to my friend list
+                    await updateDoc(doc(db, "users", currentUserId), {
+                        friends: arrayUnion(friendId)
+                    });
+                    
+                    // Add me to their friend list (bidirectional friendship)
+                    await updateDoc(doc(db, "users", friendId), {
+                        friends: arrayUnion(currentUserId)
+                    });
+                    
+                    alert('友達に追加しました！');
+                    
+                    // Update friend list
+                    loadFriendsList();
+                    
+                    // Update search results
+                    searchUsers();
+                    
+                } catch (error) {
+                    console.error('友達追加エラー:', error);
+                    alert('友達の追加に失敗しました');
+                }
+            }
+
+            // Remove friend
+            async function removeFriend(friendId) {
+                try {
+                    const currentUserId = window.currentUserId;
+                    
+                    // Remove from my friend list
+                    await updateDoc(doc(db, "users", currentUserId), {
+                        friends: arrayRemove(friendId)
+                    });
+                    
+                    // Remove me from their friend list
+                    await updateDoc(doc(db, "users", friendId), {
+                        friends: arrayRemove(currentUserId)
+                    });
+                    
+                    alert('友達から削除しました');
+                    
+                    // Update friend list
+                    loadFriendsList();
+                    
+                    // Update search results
+                    searchUsers();
+                    
+                } catch (error) {
+                    console.error('友達削除エラー:', error);
+                    alert('友達の削除に失敗しました');
+                }
+            }
+
+            // Load friends list
+            async function loadFriendsList() {
+                const friendsList = document.getElementById('friendsList');
+                const currentUserId = window.currentUserId;
+                
+                if (!currentUserId) {
+                    friendsList.innerHTML = '<p>ログインしていません</p>';
+                    return;
+                }
+                
+                friendsList.innerHTML = '<p>読み込み中...</p>';
+                
+                try {
+                    // Get current user info
+                    const userRef = doc(db, "users", currentUserId);
+                    const userSnap = await getDoc(userRef);
+                    
+                    if (!userSnap.exists()) {
+                        friendsList.innerHTML = '<p>ユーザー情報が見つかりません</p>';
+                        return;
+                    }
+                    
+                    const userData = userSnap.data();
+                    const friends = userData.friends || [];
+                    
+                    if (friends.length === 0) {
+                        friendsList.innerHTML = '<p>まだ友達がいません</p>';
+                        return;
+                    }
+                    
+                    // Get friend user info - handle each friend individually to avoid errors stopping all
+                    let html = '';
+                    
+                    // Process each friend with individual error handling
+                    for (const friendId of friends) {
+                        try {
+                            const friendRef = doc(db, "users", friendId);
+                            const friendSnap = await getDoc(friendRef);
+                            
+                            if (friendSnap.exists()) {
+                                const friend = friendSnap.data();
+                                html += `
+                                    <div class="friend-item">
+                                        <div>${friend.username}</div>
+                                        <button class="remove-friend-btn" data-id="${friendSnap.id}">削除</button>
+                                    </div>
+                                `;
+                            }
+                        } catch (friendError) {
+                            console.warn(`特定の友達(${friendId})の読み込みに失敗しました:`, friendError);
+                            // Add a placeholder for this friend
+                            html += `
+                                <div class="friend-item">
+                                    <div>読み込みエラー</div>
+                                    <button class="remove-friend-btn" data-id="${friendId}">削除</button>
+                                </div>
+                            `;
+                        }
+                    }
+                    
+                    friendsList.innerHTML = html || '<p>友達情報の読み込みに失敗しました</p>';
+                    
+                    // Add event listeners for remove friend buttons
+                    document.querySelectorAll('.remove-friend-btn').forEach(btn => {
+                        btn.addEventListener('click', (e) => {
+                            removeFriend(e.target.dataset.id);
+                        });
+                    });
+                    
+                } catch (error) {
+                    console.error('友達リスト読み込みエラー:', error);
+                    friendsList.innerHTML = '<p>友達リストの読み込みに失敗しました: ' + error.message + '</p>';
+                }
+                
+            }
+
+            function checkAuthentication() {
+                return new Promise((resolve, reject) => {
+                    onAuthStateChanged(auth, (user) => {
+                        if (user) {
+                            window.currentUserId = user.uid;
+                            localStorage.setItem('userId', user.uid);
+                            resolve(user);
+                        } else {
+                            window.currentUserId = null;
+                            localStorage.removeItem('userId');
+                            reject(new Error('Not authenticated'));
+                        }
+                    }, (error) => {
+                        console.error('認証エラー:', error);
+                        reject(error);
+                    });
+                });
+            }
+
+            // Add event listeners when DOM is loaded
+            document.addEventListener('DOMContentLoaded', async () => {
+                try {
+                    // Initialize global user ID
+                    window.currentUserId = localStorage.getItem('userId');
+                    
+                    // Add event listeners for friend search modal
+                    const searchFriendsBtn = document.getElementById('searchFriendsBtn');
+                    const closeFriendSearchBtn = document.getElementById('closeFriendSearchBtn');
+                    const executeSearchBtn = document.getElementById('executeSearchBtn');
+                    
+                    if (searchFriendsBtn) {
+                        searchFriendsBtn.addEventListener('click', showFriendSearchModal);
+                    }
+                    
+                    if (closeFriendSearchBtn) {
+                        closeFriendSearchBtn.addEventListener('click', closeFriendSearchModal);
+                    }
+                    
+                    if (executeSearchBtn) {
+                        executeSearchBtn.addEventListener('click', searchUsers);
+                    }
+                    
+                    // Check authentication state with error handling
+                    try {
+                        await checkAuthentication();
+                        // Only load friends list if authenticated
+                        if (window.currentUserId) {
+                            loadFriendsList();
+
+                        }
+                    } catch (authError) {
+                        console.log('認証が必要です:', authError);
+                        showAuthModal();
+                    }
+                } catch (error) {
+                    console.error('初期化エラー:', error);
+                }
+            });
+            
+            // Export functions to global scope
+            window.showFriendSearchModal = showFriendSearchModal;
+            window.closeFriendSearchModal = closeFriendSearchModal;
+            window.searchUsers = searchUsers;
+            window.addFriend = addFriend;
+            window.removeFriend = removeFriend;
+            window.loadFriendsList = loadFriendsList;
 
           </script>
         <h1>スマホ見てるやつ厳しいって</h1>
@@ -377,7 +826,7 @@
             </div>
         </div>
         
-        <!-- サイドパネル：統計情報 -->
+        <!-- サイドパネル：統計情報と友達機能 -->
         <div class="side-panel" id="sidePanel">
             <button class="close-panel" id="closePanel">✕</button>
             <h2>統計情報</h2>
@@ -385,11 +834,37 @@
                 <p>今日の利用時間: <span id="todayUsage">0分</span></p>
                 <p>今週の利用時間: <span id="weekUsage">0分</span></p>
             </div>
+            <h2>友達</h2>
+            <div class="friends-section">
+                <button id="searchFriendsBtn" class="action-btn">友達を検索</button>
+                <div id="friendsList" class="friends-list">
+                    <p>読み込み中...</p>
+                </div>
+            </div>
+
             
             <div class="notification-test">
                 <button id="testNotificationBtn">通知テスト</button>
             </div>
         </div>
+
+        <!-- 友達検索モーダルを追加 -->
+        <div class="friend-search-modal" id="friendSearchModal">
+            <div class="friend-search-container">
+                <h2>友達を検索</h2>
+                <div class="search-form">
+                    <div class="form-group">
+                        <input type="text" id="searchQuery" placeholder="メールアドレスまたはユーザー名で検索">
+                        <button id="executeSearchBtn">検索</button>
+                    </div>
+                    <div class="search-results" id="searchResults">
+                        <!-- 検索結果がここに表示されます -->
+                    </div>
+                </div>
+                <button id="closeFriendSearchBtn">閉じる</button>
+            </div>
+        </div>
+
         
         <!-- オーバーレイ -->
         <div class="overlay" id="overlay"></div>
@@ -710,7 +1185,17 @@
                 this.menuBtn.addEventListener('click', () => this.openSidePanel());
                 this.closePanel.addEventListener('click', () => this.closeSidePanel());
                 this.overlay.addEventListener('click', () => this.closeSidePanel());
+
+                // 友達機能のイベントリスナー
+                const searchFriendsBtn = document.getElementById('searchFriendsBtn');
+                if (searchFriendsBtn) {
+                    searchFriendsBtn.addEventListener('click', () => {
+                        if (window.showFriendSearchModal) {
+                            window.showFriendSearchModal();
+                        }
+                    });
             }
+        }
             //サイドパネルを開く
             openSidePanel(){
                 this.sidePanel.classList.add('open');
