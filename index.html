@@ -1026,6 +1026,21 @@
             getIsPaused() {
                 return this.isPaused;
             }
+
+            getFormattedRemainingTime(timeLimit) {
+                // Convert timeLimit from minutes to seconds
+                const limitInSeconds = timeLimit * 60;
+                // Calculate remaining seconds
+                const remainingSeconds = Math.max(0, limitInSeconds - this.elapsedTime);
+                
+                const hours = Math.floor(remainingSeconds / 3600);
+                const minutes = Math.floor((remainingSeconds % 3600) / 60);
+                const seconds = Math.floor(remainingSeconds % 60);
+                
+                return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            }
+
+
         }
         
         // 通知管理クラス
@@ -1151,6 +1166,8 @@
                 
                 // 設定
                 this.timeLimit = this.loadTimeLimit();
+
+                this.showRemainingTime = true;
                 
                 // 各マネージャーの初期化
                 this.notificationManager = new NotificationManager();
@@ -1175,18 +1192,26 @@
             
             // イベントリスナーの設定
             setupEventListeners() {
+                // Keep existing event listeners
                 this.resetBtn.addEventListener('click', () => this.resetTimer());
                 this.pauseBtn.addEventListener('click', () => this.togglePause());
                 this.saveLimitBtn.addEventListener('click', () => this.saveTimeLimit());
                 this.testNotificationBtn.addEventListener('click', () => {
                     this.notificationManager.showTestNotification();
                 });
-            // サイドパネルの開閉
+                
+                // Add click event to timer to toggle between remaining and elapsed time
+                this.timerElement.addEventListener('click', () => {
+                    this.showRemainingTime = !this.showRemainingTime;
+                    this.updateTimerDisplay(this.timer.getElapsedTime());
+                });
+                
+                // Side panel event listeners
                 this.menuBtn.addEventListener('click', () => this.openSidePanel());
                 this.closePanel.addEventListener('click', () => this.closeSidePanel());
                 this.overlay.addEventListener('click', () => this.closeSidePanel());
-
-                // 友達機能のイベントリスナー
+        
+                // Friends feature event listeners
                 const searchFriendsBtn = document.getElementById('searchFriendsBtn');
                 if (searchFriendsBtn) {
                     searchFriendsBtn.addEventListener('click', () => {
@@ -1194,8 +1219,9 @@
                             window.showFriendSearchModal();
                         }
                     });
+                }
             }
-        }
+            
             //サイドパネルを開く
             openSidePanel(){
                 this.sidePanel.classList.add('open');
@@ -1206,20 +1232,36 @@
                 this.sidePanel.classList.remove('open');
                 this.overlay.classList.remove('active');
             }
-            
             // タイマー表示の更新
             updateTimerDisplay(elapsedSeconds) {
-                const hours = Math.floor(elapsedSeconds / 3600);
-                const minutes = Math.floor((elapsedSeconds % 3600) / 60);
-                const seconds = Math.floor(elapsedSeconds % 60);
-                
-                this.timerElement.textContent = 
-                    `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-                
-                // 分単位での経過時間
+                // Store elapsed time for calculations
                 const elapsedMinutes = Math.floor(elapsedSeconds / 60);
                 
-                // 制限時間チェック
+                if (this.showRemainingTime) {
+                    // Display remaining time
+                    this.timerElement.textContent = this.timer.getFormattedRemainingTime(this.timeLimit);
+                    
+                    // Add visual indicator when time is almost up (less than 5 minutes)
+                    const remainingMinutes = this.timeLimit - elapsedMinutes;
+                    if (remainingMinutes <= 5 && remainingMinutes > 0) {
+                        this.timerElement.style.color = "#e74c3c"; // Red color
+                    } else if (remainingMinutes <= 0) {
+                        this.timerElement.style.color = "#e74c3c"; // Red color
+                        // Optional: Could add visual effects here like flashing
+                    } else {
+                        this.timerElement.style.color = "#000011"; // Reset to normal color
+                    }
+                } else {
+                    // Original elapsed time display code (keep as fallback)
+                    const hours = Math.floor(elapsedSeconds / 3600);
+                    const minutes = Math.floor((elapsedSeconds % 3600) / 60);
+                    const seconds = Math.floor(elapsedSeconds % 60);
+                    
+                    this.timerElement.textContent = 
+                        `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                }
+                
+                // Time limit check (keep existing code)
                 if (elapsedMinutes >= this.timeLimit) {
                     this.notificationManager.showNotification(
                         this.notifyEnabledCheckbox.checked, 
@@ -1227,7 +1269,7 @@
                     );
                 }
             }
-            
+        
             // セッションの保存
             saveSession() {
                 const elapsedMinutes = Math.floor(this.timer.getElapsedTime() / 60);
@@ -1252,6 +1294,10 @@
                 if (!isNaN(limit) && limit > 0) {
                     this.timeLimit = limit;
                     localStorage.setItem('timeLimit', this.timeLimit);
+                    
+                    // Update the timer display immediately to reflect new time limit
+                    this.updateTimerDisplay(this.timer.getElapsedTime());
+                    
                     alert(`目標時間を${this.timeLimit}分に設定しました`);
                 }
             }
